@@ -1,0 +1,202 @@
+CREATE DATABASE laba3;
+GO
+USE laba3;
+GO
+
+CREATE TABLE Departments (
+    DeptID INT PRIMARY KEY IDENTITY(1,1),
+    DeptName NVARCHAR(50) NOT NULL
+);
+
+CREATE TABLE EduForms (
+    FormID INT PRIMARY KEY IDENTITY(1,1),
+    FormName NVARCHAR(50) NOT NULL
+);
+
+CREATE TABLE AcademicPlans (
+    PlanID INT PRIMARY KEY IDENTITY(1,1),
+    StudyYear INT NOT NULL,
+    DeptID INT NOT NULL,
+    FormID INT NOT NULL,
+    TotalHours INT,
+    ClassroomHours INT,
+    CONSTRAINT FK_Plans_Departments FOREIGN KEY (DeptID) REFERENCES Departments(DeptID),
+    CONSTRAINT FK_Plans_EduForms FOREIGN KEY (FormID) REFERENCES EduForms(FormID)
+);
+
+CREATE TABLE Enrollees (
+    EnrolleeID INT PRIMARY KEY IDENTITY(1,1),
+    Surname NVARCHAR(25) NOT NULL,
+    FirstName NVARCHAR(25) NOT NULL,
+    Patronymic NVARCHAR(25),
+    BirthDate DATE,
+    AdmissionDate DATE,
+    ScoreValue FLOAT
+);
+
+CREATE TABLE Enrollments (
+    EnrolleeID INT NOT NULL,
+    PlanID INT NOT NULL,
+    CONSTRAINT PK_Enrollments PRIMARY KEY (EnrolleeID, PlanID),
+    CONSTRAINT FK_Enrollments_Enrollees FOREIGN KEY (EnrolleeID) REFERENCES Enrollees(EnrolleeID),
+    CONSTRAINT FK_Enrollments_Plans FOREIGN KEY (PlanID) REFERENCES AcademicPlans(PlanID)
+);
+
+INSERT INTO Departments (DeptName) VALUES
+('ФПМ'),
+('ФПК'),
+('ФИТ');
+
+INSERT INTO EduForms (FormName) VALUES
+('Очная'),
+('Заочная');
+
+INSERT INTO AcademicPlans (StudyYear, DeptID, FormID, TotalHours, ClassroomHours) VALUES
+(1, 1, 1, 310, 190),
+(1, 1, 2, 270, 140),
+(2, 2, 1, 340, 210),
+(3, 2, 2, 295, 155),
+(3, 3, 1, 360, 220),
+(4, 3, 2, 305, 165),
+(4, 1, 1, 350, 215),
+(1, 2, 1, 325, 185),
+(2, 3, 2, 280, 145),
+(2, 1, 2, 250, 120);
+
+INSERT INTO Enrollees (Surname, FirstName, Patronymic, BirthDate, AdmissionDate, ScoreValue) VALUES
+('Петров', 'Олег', NULL, '2001-03-17', '2019-09-01', 8.2),
+('Андреев', 'Кирилл', 'В', '2001-06-05', '2018-09-01', 6.4),
+('Василенко', 'Алина', NULL, '2000-05-28', '2020-09-01', 9.1),
+('Матвеев', 'Андрей', 'О', '1998-04-11', '2017-09-01', 7.0),
+('Вилейко', 'Максим', NULL, '2001-11-25', '2019-09-01', 5.5),
+('Смирнова', 'Алена', 'P', '2004-03-28', '2018-09-01', 8.8),
+('Морозова', 'Милана', NULL, '2002-07-07', '2020-09-01', 6.9),
+('Козлова', 'Ирина', 'М', '1997-01-15', '2017-09-01', 7.6),
+('Максимов', 'Никита', NULL, '2001-11-02', '2019-09-01', 9.5),
+('Иванов', 'Максим', 'Н', '2000-06-18', '2018-09-01', 6.1);
+
+INSERT INTO Enrollments (EnrolleeID, PlanID) VALUES
+(1, 1),
+(2, 2),
+(3, 3),
+(4, 4),
+(5, 5),
+(6, 6),
+(7, 7),
+(8, 8),
+(9, 9),
+(10, 10);
+GO
+
+SELECT e.Surname, e.FirstName, e.Patronymic, d.DeptName, p.StudyYear FROM Enrollees e
+JOIN Enrollments en ON e.EnrolleeID = en.EnrolleeID
+JOIN AcademicPlans p ON en.PlanID = p.PlanID
+JOIN Departments d ON p.DeptID = d.DeptID
+JOIN EduForms f ON p.FormID = f.FormID
+WHERE f.FormName = 'Заочная' AND FLOOR(DATEDIFF(DAY, e.BirthDate, GETDATE()) / 365.25) < 37;
+
+SELECT d.DeptName, COUNT(en.EnrolleeID) AS ResultCount FROM Departments d
+JOIN AcademicPlans p ON d.DeptID = p.DeptID
+JOIN Enrollments en ON p.PlanID = en.PlanID
+GROUP BY d.DeptName;
+
+SELECT f.FormName, COUNT(en.EnrolleeID) AS ResultCount FROM EduForms f
+JOIN AcademicPlans p ON f.FormID = p.FormID
+JOIN Enrollments en ON p.PlanID = en.PlanID
+GROUP BY f.FormName;
+
+SELECT d.DeptName, AVG(FLOOR(DATEDIFF(DAY, e.BirthDate, GETDATE()) / 365.25)) AS MeanAge FROM Departments d
+JOIN AcademicPlans p ON d.DeptID = p.DeptID
+JOIN Enrollments en ON p.PlanID = en.PlanID
+JOIN Enrollees e ON en.EnrolleeID = e.EnrolleeID
+GROUP BY d.DeptName;
+
+SELECT e.Surname, e.FirstName, e.AdmissionDate, d.DeptName, p.StudyYear, f.FormName FROM Enrollees e
+JOIN Enrollments en ON e.EnrolleeID = en.EnrolleeID
+JOIN AcademicPlans p ON en.PlanID = p.PlanID
+JOIN Departments d ON p.DeptID = d.DeptID
+JOIN EduForms f ON p.FormID = f.FormID
+WHERE e.Patronymic IS NULL;
+
+SELECT d.DeptName, COUNT(e.EnrolleeID) AS ResultCount FROM Enrollees e
+JOIN Enrollments en ON e.EnrolleeID = en.EnrolleeID
+JOIN AcademicPlans p ON en.PlanID = p.PlanID
+JOIN Departments d ON p.DeptID = d.DeptID
+WHERE YEAR(e.AdmissionDate) = 2015
+GROUP BY d.DeptName
+ORDER BY ResultCount DESC;
+
+SELECT d.DeptName, f.FormName, COUNT(e.EnrolleeID) AS ResultCount FROM Enrollees e
+JOIN Enrollments en ON e.EnrolleeID = en.EnrolleeID
+JOIN AcademicPlans p ON en.PlanID = p.PlanID
+JOIN Departments d ON p.DeptID = d.DeptID
+JOIN EduForms f ON p.FormID = f.FormID
+WHERE YEAR(e.AdmissionDate) = 2014
+GROUP BY d.DeptName, f.FormName;
+
+SELECT DISTINCT d.DeptName FROM Departments d
+JOIN AcademicPlans p ON d.DeptID = p.DeptID
+JOIN EduForms f ON p.FormID = f.FormID
+WHERE f.FormName = 'Заочная';
+
+SELECT d.DeptName, f.FormName, p.StudyYear FROM Departments d
+JOIN AcademicPlans p ON d.DeptID = p.DeptID
+JOIN EduForms f ON p.FormID = f.FormID
+ORDER BY d.DeptName, f.FormName, p.StudyYear;
+
+SELECT d.DeptName, f.FormName, COUNT(en.EnrolleeID) AS ResultCount FROM Departments d
+JOIN AcademicPlans p ON d.DeptID = p.DeptID
+JOIN EduForms f ON p.FormID = f.FormID
+JOIN Enrollments en ON p.PlanID = en.PlanID
+GROUP BY d.DeptName, f.FormName
+ORDER BY d.DeptName;
+
+SELECT d.DeptName, f.FormName, COUNT(e.EnrolleeID) AS ResultCount FROM Enrollees e
+JOIN Enrollments en ON e.EnrolleeID = en.EnrolleeID
+JOIN AcademicPlans p ON en.PlanID = p.PlanID
+JOIN Departments d ON p.DeptID = d.DeptID
+JOIN EduForms f ON p.FormID = f.FormID
+WHERE p.StudyYear IN (1, 3)
+GROUP BY d.DeptName, f.FormName;
+
+SELECT d.DeptName, p.StudyYear, COUNT(e.EnrolleeID) AS ResultCount FROM Enrollees e
+JOIN Enrollments en ON e.EnrolleeID = en.EnrolleeID
+JOIN AcademicPlans p ON en.PlanID = p.PlanID
+JOIN Departments d ON p.DeptID = d.DeptID
+WHERE e.Patronymic IS NULL
+GROUP BY d.DeptName, p.StudyYear
+ORDER BY d.DeptName, p.StudyYear;
+
+SELECT d.DeptName, p.StudyYear, COUNT(e.EnrolleeID) AS ResultCount FROM Enrollees e
+JOIN Enrollments en ON e.EnrolleeID = en.EnrolleeID
+JOIN AcademicPlans p ON en.PlanID = p.PlanID
+JOIN Departments d ON p.DeptID = d.DeptID
+WHERE e.ScoreValue > 7.5
+GROUP BY d.DeptName, p.StudyYear
+ORDER BY d.DeptName, p.StudyYear;
+
+SELECT d.DeptName, f.FormName, COUNT(e.EnrolleeID) AS ResultCount FROM Enrollees e
+JOIN Enrollments en ON e.EnrolleeID = en.EnrolleeID
+JOIN AcademicPlans p ON en.PlanID = p.PlanID
+JOIN Departments d ON p.DeptID = d.DeptID
+JOIN EduForms f ON p.FormID = f.FormID
+WHERE FLOOR(DATEDIFF(DAY, e.BirthDate, GETDATE()) / 365.25) > 45
+GROUP BY d.DeptName, f.FormName
+ORDER BY d.DeptName;
+
+SELECT d.DeptName, f.FormName, p.StudyYear, COUNT(e.EnrolleeID) AS ResultCount FROM Enrollees e
+JOIN Enrollments en ON e.EnrolleeID = en.EnrolleeID
+JOIN AcademicPlans p ON en.PlanID = p.PlanID
+JOIN Departments d ON p.DeptID = d.DeptID
+JOIN EduForms f ON p.FormID = f.FormID
+WHERE FLOOR(DATEDIFF(DAY, e.BirthDate, GETDATE()) / 365.25) < 27
+GROUP BY d.DeptName, f.FormName, p.StudyYear
+ORDER BY d.DeptName, f.FormName, p.StudyYear;
+
+SELECT d.DeptName, COUNT(e.EnrolleeID) AS ResultCount FROM Enrollees e
+JOIN Enrollments en ON e.EnrolleeID = en.EnrolleeID
+JOIN AcademicPlans p ON en.PlanID = p.PlanID
+JOIN Departments d ON p.DeptID = d.DeptID
+WHERE e.Surname LIKE 'С%'
+GROUP BY d.DeptName
+ORDER BY d.DeptName;

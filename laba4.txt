@@ -1,0 +1,176 @@
+CREATE DATABASE laba4;
+GO
+USE laba4;
+GO
+
+CREATE TABLE Departments (
+    DeptID INT PRIMARY KEY IDENTITY(1,1),
+    DeptName NVARCHAR(50) NOT NULL
+);
+
+CREATE TABLE EduForms (
+    FormID INT PRIMARY KEY IDENTITY(1,1),
+    FormName NVARCHAR(50) NOT NULL
+);
+
+CREATE TABLE AcademicPlans (
+    PlanID INT PRIMARY KEY IDENTITY(1,1),
+    StudyYear INT NOT NULL,
+    DeptID INT NOT NULL,
+    FormID INT NOT NULL,
+    TotalHours INT,
+    ClassroomHours INT,
+    CONSTRAINT FK_Plans_Departments FOREIGN KEY (DeptID) REFERENCES Departments(DeptID),
+    CONSTRAINT FK_Plans_EduForms FOREIGN KEY (FormID) REFERENCES EduForms(FormID)
+);
+
+CREATE TABLE Enrollees (
+    EnrolleeID INT PRIMARY KEY IDENTITY(1,1),
+    Surname NVARCHAR(25) NOT NULL,
+    FirstName NVARCHAR(25) NOT NULL,
+    Patronymic NVARCHAR(25),
+    BirthDate DATE,
+    AdmissionDate DATE,
+    ScoreValue FLOAT
+);
+
+CREATE TABLE Enrollments (
+    EnrolleeID INT NOT NULL,
+    PlanID INT NOT NULL,
+    CONSTRAINT PK_Enrollments PRIMARY KEY (EnrolleeID, PlanID),
+    CONSTRAINT FK_Enrollments_Enrollees FOREIGN KEY (EnrolleeID) REFERENCES Enrollees(EnrolleeID),
+    CONSTRAINT FK_Enrollments_Plans FOREIGN KEY (PlanID) REFERENCES AcademicPlans(PlanID)
+);
+
+INSERT INTO Departments (DeptName) VALUES
+('ФПМ'),
+('ФПК'),
+('ФИТ');
+
+INSERT INTO EduForms (FormName) VALUES
+('Очная'),
+('Заочная');
+
+INSERT INTO AcademicPlans (StudyYear, DeptID, FormID, TotalHours, ClassroomHours) VALUES
+(1, 1, 1, 310, 190),
+(1, 1, 2, 270, 140),
+(2, 2, 1, 340, 210),
+(3, 2, 2, 295, 155),
+(3, 3, 1, 360, 220),
+(4, 3, 2, 305, 165),
+(4, 1, 1, 350, 215),
+(1, 2, 1, 325, 185),
+(2, 3, 2, 280, 145),
+(2, 1, 2, 250, 120);
+
+INSERT INTO Enrollees (Surname, FirstName, Patronymic, BirthDate, AdmissionDate, ScoreValue) VALUES
+('Петров', 'Олег', NULL, '2001-03-17', '2019-09-01', 8.2),
+('Андреев', 'Кирилл', 'В', '2001-06-05', '2018-09-01', 6.4),
+('Василенко', 'Алина', NULL, '2000-05-28', '2020-09-01', 9.1),
+('Матвеев', 'Андрей', 'О', '1998-04-11', '2017-09-01', 7.0),
+('Вилейко', 'Максим', NULL, '2001-11-25', '2019-09-01', 5.5),
+('Смирнова', 'Алена', 'P', '2004-03-28', '2018-09-01', 8.8),
+('Морозова', 'Милана', NULL, '2002-07-07', '2020-09-01', 6.9),
+('Козлова', 'Ирина', 'М', '1997-01-15', '2017-09-01', 7.6),
+('Максимов', 'Никита', NULL, '2001-11-02', '2019-09-01', 9.5),
+('Иванов', 'Максим', 'Н', '2000-06-18', '2018-09-01', 6.1);
+
+INSERT INTO Enrollments (EnrolleeID, PlanID) VALUES
+(1, 1),
+(2, 2),
+(3, 3),
+(4, 4),
+(5, 5),
+(6, 6),
+(7, 7),
+(8, 8),
+(9, 9),
+(10, 10);
+GO
+
+CREATE PROCEDURE GetStudentsCountByFilters
+    @TargetDept NVARCHAR(50),
+    @TargetForm NVARCHAR(50)
+AS
+BEGIN
+    SELECT COUNT(e.EnrolleeID) AS ResultCount 
+    FROM Enrollees e
+    JOIN Enrollments en ON e.EnrolleeID = en.EnrolleeID
+    JOIN AcademicPlans p ON en.PlanID = p.PlanID
+    JOIN Departments d ON p.DeptID = d.DeptID
+    JOIN EduForms f ON p.FormID = f.FormID 
+    WHERE d.DeptName = @TargetDept 
+      AND f.FormName = @TargetForm;
+END;
+GO
+
+CREATE PROCEDURE CalculatePlanMetrics
+    @OutFpkCount INT OUTPUT,
+    @OutFpmCount INT OUTPUT,
+    @OutTotalCount INT OUTPUT,
+    @OutDuplicateCount INT OUTPUT
+AS
+BEGIN
+    SELECT @OutFpkCount = COUNT(*) 
+    FROM AcademicPlans p
+    JOIN Departments d ON p.DeptID = d.DeptID 
+    WHERE d.DeptName = 'ФПК';
+
+    SELECT @OutFpmCount = COUNT(*) 
+    FROM AcademicPlans p
+    JOIN Departments d ON p.DeptID = d.DeptID 
+    WHERE d.DeptName = 'ФПМ';
+
+    SELECT @OutTotalCount = COUNT(*) 
+    FROM AcademicPlans;
+
+    SELECT @OutDuplicateCount = COUNT(*) 
+    FROM (
+        SELECT StudyYear 
+        FROM AcademicPlans 
+        GROUP BY StudyYear 
+        HAVING COUNT(*) > 1
+    ) AS DuplicateGroups;
+
+    PRINT 'ФПК: ' + CAST(@OutFpkCount AS NVARCHAR(10));
+    PRINT 'ФПМ: ' + CAST(@OutFpmCount AS NVARCHAR(10));
+    PRINT 'Всего: ' + CAST(@OutTotalCount AS NVARCHAR(10));
+    PRINT 'Одинаковых: ' + CAST(@OutDuplicateCount AS NVARCHAR(10));
+END;
+GO
+
+CREATE PROCEDURE InsertNewEnrollee
+    @TxtLastName NVARCHAR(25),
+    @TxtFirstName NVARCHAR(25),
+    @TxtPatronymic NVARCHAR(25) = NULL,
+    @DtBirth DATE,
+    @DtAdmission DATE,
+    @ParamDept NVARCHAR(50),
+    @ParamForm NVARCHAR(50)
+AS
+BEGIN
+    DECLARE @FoundPlanID INT;
+
+    SELECT @FoundPlanID = p.PlanID 
+    FROM AcademicPlans p
+    JOIN Departments d ON p.DeptID = d.DeptID
+    JOIN EduForms f ON p.FormID = f.FormID 
+    WHERE d.DeptName = @ParamDept 
+      AND f.FormName = @ParamForm 
+      AND p.StudyYear = 1;
+
+    INSERT INTO Enrollees (Surname, FirstName, Patronymic, BirthDate, AdmissionDate, ScoreValue) 
+    VALUES (@TxtLastName, @TxtFirstName, @TxtPatronymic, @DtBirth, @DtAdmission, 0);
+    DECLARE @CreatedStudentID INT = SCOPE_IDENTITY();
+    INSERT INTO Enrollments (EnrolleeID, PlanID) 
+    VALUES (@CreatedStudentID, @FoundPlanID);
+    PRINT N'Студент добавлен';
+END;
+GO
+
+EXEC GetStudentsCountByFilters 'ФПМ', 'Очная';
+
+DECLARE @ValA INT, @ValB INT, @ValC INT, @ValD INT;
+EXEC CalculatePlanMetrics @ValA OUTPUT, @ValB OUTPUT, @ValC OUTPUT, @ValD OUTPUT;
+
+EXEC InsertNewEnrollee 'Николаев', 'Владимир', 'П', '2003-04-12', '2021-09-01', 'ФПМ', 'Очная';

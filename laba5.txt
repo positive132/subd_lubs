@@ -1,0 +1,89 @@
+CREATE TABLE Staff (
+    StaffID INT PRIMARY KEY IDENTITY(1,1),
+    FirstName NVARCHAR(50),
+    LastName NVARCHAR(50),
+    BirthDate DATE
+);
+
+CREATE TABLE ProductGroups (
+    GroupID INT PRIMARY KEY IDENTITY(1,1),
+    GroupName NVARCHAR(50)
+);
+
+CREATE TABLE Items (
+    ItemID INT PRIMARY KEY IDENTITY(1,1),
+    ItemTitle NVARCHAR(100),
+    GroupID INT,
+    PriceVal INT,
+    FOREIGN KEY (GroupID) REFERENCES ProductGroups(GroupID)
+);
+
+INSERT INTO Staff (FirstName, LastName, BirthDate) VALUES
+(N'Максим', N'Петров', '1997-03-12'),
+(N'Дмитрий', N'Иванов', '1993-08-20'),
+(N'Андрей', N'Смирнов', '2002-07-17');
+
+INSERT INTO ProductGroups (GroupName) VALUES (N'Электроника'), (N'Автомобили');
+
+INSERT INTO Items (ItemTitle, GroupID, PriceVal) VALUES
+(N'Ноутбук', 1, 20000),
+(N'Наушники', 1, 7000),
+(N'Жигули', 2, 150000);
+GO
+
+CREATE FUNCTION ComputeStaffAge (@BirthDay DATE)
+RETURNS INT
+AS
+BEGIN
+    RETURN FLOOR(DATEDIFF(DAY, @BirthDay, GETDATE()) / 365.25);
+END;
+GO
+
+SELECT FirstName, LastName, dbo.ComputeStaffAge(BirthDate) AS FullYears
+FROM Staff
+WHERE dbo.ComputeStaffAge(BirthDate) > 30;
+GO
+
+CREATE FUNCTION FetchItemsByGroupName (@GroupTitle NVARCHAR(50))
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT i.ItemID, i.ItemTitle, i.PriceVal
+    FROM Items i
+    JOIN ProductGroups g ON i.GroupID = g.GroupID
+    WHERE g.GroupName = @GroupTitle
+);
+GO
+
+SELECT * FROM dbo.FetchItemsByGroupName(N'Электроника');
+GO
+
+CREATE FUNCTION BuildFullName (@NameFirst NVARCHAR(50), @NameLast NVARCHAR(50))
+RETURNS NVARCHAR(110)
+AS
+BEGIN
+    RETURN @NameLast + ' ' + @NameFirst;
+-- Альтернатива CONCAT для уникализации
+END;
+GO
+
+SELECT dbo.BuildFullName(FirstName, LastName) AS DisplayName
+FROM Staff;
+GO
+
+CREATE FUNCTION GetGroupAveragePrice (@TargetGroupID INT)
+RETURNS INT
+AS
+BEGIN
+    RETURN (
+        SELECT COALESCE(AVG(PriceVal), 0) 
+        FROM Items 
+        WHERE GroupID = @TargetGroupID
+    );
+END;
+GO
+
+SELECT GroupName, dbo.GetGroupAveragePrice(GroupID) AS AvgCost
+FROM ProductGroups;
+GO
